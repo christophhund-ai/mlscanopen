@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SICK MLS Operator</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="mark">MLS</span>
+      <div>
+        <h1>Line Guidance Operator</h1>
+        <p>SICK MLS · CANopen Prozess- und Servicedaten</p>
+      </div>
+    </div>
+    <div class="conn">
+      <label>Modus
+        <select id="mode">
+          <option value="simulation">Simulation</option>
+          <option value="hardware">Hardware (CAN)</option>
+        </select>
+      </label>
+      <label>Variante
+        <select id="variant"></select>
+      </label>
+      <label>Node-ID
+        <input id="nodeId" type="number" min="1" max="127" value="10" />
+      </label>
+      <div id="hwFields" class="hw-fields hidden">
+        <label>Interface
+          <select id="iface"></select>
+        </label>
+        <label>Kanal
+          <input id="channel" value="PCAN_USBBUS1" />
+        </label>
+        <label>Bitrate
+          <select id="bitrate"></select>
+        </label>
+      </div>
+      <button id="btnConnect" class="primary">Verbinden</button>
+      <button id="btnDisconnect" disabled>Trennen</button>
+      <span id="linkState" class="pill off">getrennt</span>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button data-tab="live" class="active">Live / Spuren</button>
+    <button data-tab="process">Prozessdaten</button>
+    <button data-tab="service">Servicedaten (SDO)</button>
+    <button data-tab="nmt">NMT / TPDO</button>
+  </nav>
+
+  <main>
+    <section id="tab-live" class="tab">
+      <div class="grid-live">
+        <article class="card span-2">
+          <header>
+            <h2>Sensor-Sicht (Draufsicht)</h2>
+            <div id="leds" class="leds" title="LED-Fenster analog Betriebsanleitung">
+              <span class="led y" id="ledY"></span>
+              <span class="led r" id="ledR"></span>
+              <span class="led g" id="ledG"></span>
+              <span class="led b" id="ledB"></span>
+            </div>
+          </header>
+          <canvas id="view" height="220"></canvas>
+          <p class="hint">Nullpunkt = geometrische Mitte. Negativ = Kabelabgang (wenn Sensor flipped = 0). Marker liegen auf 30-mm-Raster neben der Spur.</p>
+        </article>
+        <article class="card">
+          <h2>Status</h2>
+          <dl id="statusDl" class="kv"></dl>
+        </article>
+        <article class="card span-2">
+          <header>
+            <h2>Hall-Rohdaten / Bitmap</h2>
+            <button id="btnHall">Hall via SDO lesen</button>
+          </header>
+          <canvas id="hall" height="160"></canvas>
+        </article>
+        <article class="card hist-card span-3">
+          <header>
+            <h2>LCP-Verlauf</h2>
+            <p class="hint legend">
+              <span class="swatch lcp1"></span> LCP1
+              <span class="swatch lcp2"></span> LCP2
+              <span class="swatch lcp3"></span> LCP3
+              · Position quer, Zeit von oben (älter) nach unten (jetzt)
+            </p>
+          </header>
+          <canvas id="hist" height="520"></canvas>
+        </article>
+        <article class="card span-3" id="simPanel">
+          <h2>Simulations-Szenarien</h2>
+          <div class="row">
+            <button data-scen="none">Keine Spur</button>
+            <button data-scen="single">Eine Spur</button>
+            <button data-scen="diverter_left">Weiche links</button>
+            <button data-scen="diverter_right">Weiche rechts</button>
+            <button data-scen="three">Drei Spuren</button>
+            <button data-scen="marker">Spur + Marker</button>
+            <button data-scen="weak">Schwaches Feld</button>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section id="tab-process" class="tab hidden">
+      <article class="card">
+        <header class="split">
+          <h2>Prozessdaten lesen / schreiben</h2>
+          <button id="btnRefreshProc">Aktualisieren (SDO)</button>
+        </header>
+        <p class="hint">Live-Werte kommen aus den TPDOs. Über SDO können dieselben Objekte gelesen und beschreibbare Prozessparameter geschrieben werden.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Index</th><th>Sub</th><th>Name</th><th>Typ</th><th>Zugriff</th><th>Wert</th><th></th></tr>
+            </thead>
+            <tbody id="procBody"></tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+
+    <section id="tab-service" class="tab hidden">
+      <article class="card">
+        <header class="split">
+          <h2>Objektverzeichnis</h2>
+          <div class="row">
+            <input id="objFilter" placeholder="Filter (Name, Index…)" />
+            <select id="objGroup"><option value="">Alle Gruppen</option></select>
+            <button id="btnReadAll">Gruppe lesen</button>
+          </div>
+        </header>
+        <div class="quick">
+          <button data-act="save">Parameter speichern (0x1010:1 = save)</button>
+          <button data-act="default">Werkseinstellung</button>
+          <button data-act="offset">Offset-Kalibrierung</button>
+          <button data-act="zero">Nullpunkt teach</button>
+          <button data-act="yaw">Yaw zurücksetzen</button>
+          <button data-act="event">Event-Flag zurücksetzen</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Index</th><th>Sub</th><th>Gruppe</th><th>Name</th><th>Typ</th><th>Zugriff</th><th>Wert</th><th></th></tr>
+            </thead>
+            <tbody id="svcBody"></tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+
+    <section id="tab-nmt" class="tab hidden">
+      <div class="grid-2">
+        <article class="card">
+          <h2>NMT</h2>
+          <div class="row">
+            <button data-nmt="1">Start (Operational)</button>
+            <button data-nmt="128">Pre-Operational</button>
+            <button data-nmt="2">Stop</button>
+            <button data-nmt="129">Reset Node</button>
+            <button data-nmt="130">Reset Communication</button>
+          </div>
+          <p class="hint">Werkseitig: Node-ID 10 (0x0A), 125 kbit/s, TPDO1 zyklisch alle 10 ms. Nach Node-ID-Änderung Reset Communication (0x82).</p>
+        </article>
+        <article class="card">
+          <h2>TPDO aktivieren</h2>
+          <p class="hint">Maximal 4 TPDOs gleichzeitig. Gültige COB-IDs: 0x180/280/380/480 + Node-ID. MSB gesetzt = deaktiviert.</p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>TPDO</th><th>Inhalt</th><th>COB-ID</th><th>Timer [ms]</th><th></th></tr></thead>
+              <tbody>
+                <tr><td>1</td><td>LCP / Marker / Status</td><td><input id="cob1" /></td><td><input id="tmr1" type="number" /></td><td><button data-pdo="1">Schreiben</button></td></tr>
+                <tr><td>2</td><td>Breite / Line Level</td><td><input id="cob2" /></td><td><input id="tmr2" type="number" /></td><td><button data-pdo="2">Schreiben</button></td></tr>
+                <tr><td>3</td><td>Bitmap</td><td><input id="cob3" /></td><td><input id="tmr3" type="number" /></td><td><button data-pdo="3">Schreiben</button></td></tr>
+                <tr><td>4</td><td>Euler + Timestamp</td><td><input id="cob4" /></td><td><input id="tmr4" type="number" /></td><td><button data-pdo="4">Schreiben</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <button id="btnReadPdo">TPDO-Parameter lesen</button>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast"></div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

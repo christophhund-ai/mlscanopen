@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MLS Operator</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <div class="logo">MLS</div>
+      <div>
+        <h1>Line Guidance Operator</h1>
+        <p>SICK MLS / MLSE · CANopen Prozess- und Servicedaten</p>
+      </div>
+    </div>
+    <div class="status-cluster">
+      <span id="connBadge" class="badge off">offline</span>
+      <span id="nmtBadge" class="badge">NMT —</span>
+      <span id="ledY" class="led" title="Gelb: Spur erkannt"></span>
+      <span id="ledR" class="led" title="Rot: Fehler"></span>
+      <span id="ledG" class="led" title="Grün: links"></span>
+      <span id="ledB" class="led" title="Blau: rechts"></span>
+    </div>
+  </header>
+
+  <section class="connect-bar">
+    <label>Interface
+      <select id="iface"></select>
+    </label>
+    <label>Kanal / COM
+      <input id="channel" placeholder="PCAN_USBBUS1 oder COM3" />
+    </label>
+    <label>Bitrate
+      <select id="bitrate"></select>
+    </label>
+    <label>Node-ID
+      <input id="nodeId" type="number" min="1" max="127" value="10" />
+    </label>
+    <label>Variante
+      <select id="variant"></select>
+    </label>
+    <button id="btnConnect" class="primary">Verbinden</button>
+    <button id="btnDisconnect">Trennen</button>
+    <div class="nmt-btns">
+      <button data-nmt="1">Start</button>
+      <button data-nmt="128">Pre-Op</button>
+      <button data-nmt="2">Stop</button>
+      <button data-nmt="129">Reset</button>
+    </div>
+  </section>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="live">Live-Ansicht</button>
+    <button class="tab" data-tab="process">Prozessdaten</button>
+    <button class="tab" data-tab="service">Servicedaten</button>
+  </nav>
+
+  <main>
+    <section id="tab-live" class="panel active">
+      <div class="live-grid">
+        <article class="card wide">
+          <header>
+            <h2>Sensorblick · Spuren und Marker</h2>
+            <div class="hint" id="rangeHint">Messbereich ±150 mm</div>
+          </header>
+          <canvas id="scene" width="1100" height="260"></canvas>
+        </article>
+        <article class="card wide">
+          <header>
+            <h2>Hall-Rohdaten / Magnetfeldprofil</h2>
+            <label class="inline"><input type="checkbox" id="pollHall" /> Hall über SDO pollen (Hardware)</label>
+          </header>
+          <canvas id="hall" width="1100" height="220"></canvas>
+        </article>
+        <article class="card">
+          <h2>Erkannte Spuren</h2>
+          <div id="trackCards" class="track-cards"></div>
+          <div class="meta-row" id="nlcpMeta"></div>
+        </article>
+        <article class="card">
+          <h2>Status & Marker</h2>
+          <dl id="statusDl" class="kv"></dl>
+        </article>
+        <article class="card wide">
+          <header><h2>LCP-Verlauf (mm)</h2></header>
+          <canvas id="trend" width="1100" height="160"></canvas>
+        </article>
+        <article class="card" id="simCard">
+          <h2>Simulator</h2>
+          <label>Spuren <input id="simTracks" type="range" min="0" max="3" value="1" /></label>
+          <div class="hint" id="simTrackLabel">1 Spur</div>
+          <label class="inline"><input id="simAuto" type="checkbox" checked /> Auto-Bewegung</label>
+          <label class="inline"><input id="simMarker" type="checkbox" /> Marker einblenden</label>
+          <label>Marker-Abstand (mm) <input id="simMarkerOff" type="number" value="30" /></label>
+        </article>
+        <article class="card">
+          <h2>IMU / Temperatur</h2>
+          <dl id="imuDl" class="kv"></dl>
+        </article>
+      </div>
+    </section>
+
+    <section id="tab-process" class="panel">
+      <div class="toolbar">
+        <button id="enableTpdo2">TPDO2 (Breite/Level) aktivieren</button>
+        <button id="enableTpdo3">TPDO3 (Bitmap) aktivieren</button>
+        <button id="enableTpdo4">TPDO4 (Euler) aktivieren</button>
+        <span class="hint">Max. 4 TPDOs gleichzeitig. Factory: nur TPDO1, 10 ms, 0x180+NodeID.</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Objekt</th><th>Wert</th><th>Beschreibung</th></tr>
+          </thead>
+          <tbody id="pdoBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="tab-service" class="panel">
+      <div class="toolbar">
+        <input id="odFilter" placeholder="Filter: Name, Index…" />
+        <button id="btnReadVisible">Sichtbare lesen</button>
+        <button id="btnSave">Parameter speichern (0x1010:1 = 'save')</button>
+        <button id="btnDefaults">Werkseinstellung</button>
+        <button id="btnCalib">Offset-Kalibrierung</button>
+        <button id="btnZero">Nullpunkt teach</button>
+        <button id="btnYaw">Yaw reset</button>
+        <button id="btnEvent">Event-Flag reset</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Index</th><th>Sub</th><th>R/W</th><th>Typ</th><th>Name</th>
+              <th>Wert</th><th></th><th>Beschreibung</th>
+            </tr>
+          </thead>
+          <tbody id="odBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    Objektverzeichnis nach Betriebsanleitung MLS 8021642.1OC7. Standard: Node-ID 10, 125 kbit/s, TPDO1 zyklisch 10 ms.
+  </footer>
+  <script src="/static/app.js"></script>
+</body>
+</html>
